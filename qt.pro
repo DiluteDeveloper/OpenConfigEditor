@@ -1,7 +1,7 @@
 QT += core gui widgets
 
 INCLUDEPATH += $$[QT_INSTALL_HEADERS] include/
-TARGET = config-editor
+TARGET = OpenConfigEditor
 TEMPLATE = app
 
 CONFIG += c++20
