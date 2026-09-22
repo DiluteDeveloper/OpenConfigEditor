@@ -1,0 +1,5 @@
+qt_example/
+.cache
+compile_commands.json
+.qmake.stash
+build/
