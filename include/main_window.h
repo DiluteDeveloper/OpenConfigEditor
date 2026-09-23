@@ -1,3 +1,5 @@
+#pragma once
+
 #include <QMainWindow>
 
 namespace OpenConfigEditor {

@@ -1,4 +1,6 @@
 #include "main_window.h"
+#include "file_actions.h"
+#include "text_editor.h"
 #include <QMenu>
 #include <QMenuBar>
 
@@ -26,17 +28,16 @@ MainWindow::MainWindow(QWidget *parent) {
   QGridLayout *layout = new QGridLayout;
 
   // Stack allocated, since never parented
-  QFile file("/etc/hostname");
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    std::cerr << "Failed to read file /etc/hostname" << std::endl;
-    throw std::exception();
-  }
+  // QFile file("/etc/hostname");
+  // if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+  //   std::cerr << "Failed to read file /etc/hostname" << std::endl;
+  //   throw std::exception();
+  // }
+  //
+  // // Stack allocated, since never parented
+  // QString fileString = QTextStream(&file).readAll();
 
-  std::cout << "Hello World! 0" << std::endl;
-  // Stack allocated, since never parented
-  QString fileString = QTextStream(&file).readAll();
-
-  QPlainTextEdit *text_edit = new QPlainTextEdit(fileString, centralWidget);
+  TextEditor *text_edit = new TextEditor();
 
   // QTextDocument *document = new QTextDocument(text_edit);
   // QAbstractTextDocumentLayout *document_layout =
@@ -55,9 +56,13 @@ MainWindow::MainWindow(QWidget *parent) {
   file_menu_new_action->setText("New");
   file_menu_open_action->setText("Open");
   file_menu_save_action->setText("Save");
+
   file_menu->addAction(file_menu_new_action);
   file_menu->addAction(file_menu_open_action);
   file_menu->addAction(file_menu_save_action);
+
+  connect(file_menu_open_action, &QAction::triggered, this,
+          [text_edit]() { on_file_open(text_edit); });
 
   // setMenuBar(create_menu_bar_widget());
   layout->addWidget(text_edit, 1, 0);
