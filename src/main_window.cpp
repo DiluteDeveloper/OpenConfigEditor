@@ -1,4 +1,6 @@
 #include "main_window.h"
+#include <QMenu>
+#include <QMenuBar>
 
 #include <QAbstractTextDocumentLayout>
 #include <QFile>
@@ -42,7 +44,23 @@ MainWindow::MainWindow(QWidget *parent) {
   // document->setDocumentLayout(&QAbstractTextDocumentLayout(document));
   // text_edit->setDocument(document);
 
-  layout->addWidget(text_edit, 0, 0);
+  QMenu *file_menu = menuBar()->addMenu(tr("&File"));
+  QMenu *edit_menu = menuBar()->addMenu(tr("&Edit"));
+  QMenu *help_menu = menuBar()->addMenu(tr("&Help"));
+
+  QAction *file_menu_new_action = new QAction;
+  QAction *file_menu_open_action = new QAction;
+  QAction *file_menu_save_action = new QAction;
+
+  file_menu_new_action->setText("New");
+  file_menu_open_action->setText("Open");
+  file_menu_save_action->setText("Save");
+  file_menu->addAction(file_menu_new_action);
+  file_menu->addAction(file_menu_open_action);
+  file_menu->addAction(file_menu_save_action);
+
+  // setMenuBar(create_menu_bar_widget());
+  layout->addWidget(text_edit, 1, 0);
   centralWidget->setLayout(layout);
 
   setCentralWidget(centralWidget);
