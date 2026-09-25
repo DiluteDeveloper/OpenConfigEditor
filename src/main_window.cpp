@@ -1,5 +1,6 @@
 #include "main_window.h"
 #include "file_actions.h"
+#include "status_bar.h"
 #include "text_editor.h"
 #include <QMenu>
 #include <QMenuBar>
@@ -10,7 +11,6 @@
 #include <QPlainTextEdit>
 #include <QString>
 #include <QTextDocument>
-#include <iostream>
 
 // QT widgets are deleted by their parent widget, hence why calling
 // 'new QGridLayout' and giving it a parent and not calling 'delete'
@@ -38,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent) {
   // QString fileString = QTextStream(&file).readAll();
 
   TextEditor *text_edit = new TextEditor();
+  StatusBar *status_bar = new StatusBar();
 
   // QTextDocument *document = new QTextDocument(text_edit);
   // QAbstractTextDocumentLayout *document_layout =
@@ -62,10 +63,11 @@ MainWindow::MainWindow(QWidget *parent) {
   file_menu->addAction(file_menu_save_action);
 
   connect(file_menu_open_action, &QAction::triggered, this,
-          [text_edit]() { on_file_open(text_edit); });
+          [text_edit, status_bar]() { on_file_open(*text_edit, *status_bar); });
 
   // setMenuBar(create_menu_bar_widget());
-  layout->addWidget(text_edit, 1, 0);
+  layout->addWidget(text_edit, 2, 0);
+  layout->addLayout(status_bar, 1, 0);
   centralWidget->setLayout(layout);
 
   setCentralWidget(centralWidget);
