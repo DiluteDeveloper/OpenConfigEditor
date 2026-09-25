@@ -3,3 +3,4 @@ qt_example/
 compile_commands.json
 .qmake.stash
 build/
+test.txt

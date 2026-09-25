@@ -1,5 +1,5 @@
 #include "main_window.h"
-#include "file_actions.h"
+#include "file_menu.h"
 #include "status_bar.h"
 #include "text_editor.h"
 #include <QMenu>
@@ -21,6 +21,7 @@ namespace OpenConfigEditor {
 constexpr std::string_view window_title = "OpenConfigEditor";
 
 MainWindow::MainWindow(QWidget *parent) {
+  qDebug() << "Initialising window";
   QWidget *centralWidget = new QWidget;
 
   setWindowTitle(QString::fromUtf8(window_title));
@@ -63,7 +64,13 @@ MainWindow::MainWindow(QWidget *parent) {
   file_menu->addAction(file_menu_save_action);
 
   connect(file_menu_open_action, &QAction::triggered, this,
-          [text_edit, status_bar]() { on_file_open(*text_edit, *status_bar); });
+          [text_edit, status_bar]() {
+            FileMenu::on_open_file(*text_edit, *status_bar);
+          });
+  connect(file_menu_save_action, &QAction::triggered, this,
+          [text_edit, status_bar]() {
+            FileMenu::on_save_file(*text_edit, *status_bar);
+          });
 
   // setMenuBar(create_menu_bar_widget());
   layout->addWidget(text_edit, 2, 0);
