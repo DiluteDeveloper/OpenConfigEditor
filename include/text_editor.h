@@ -8,13 +8,16 @@ namespace OpenConfigEditor {
 
 class TextEditor : public QPlainTextEdit {
 public:
-  void open_file(QString &file_path, StatusBar &status_bar);
-
-  // If no file is open, returns nullptr
-  QFile &get_current_file();
+  TextEditor(StatusBar &status_bar);
+  void open_file(StatusBar &status_bar);
+  void new_file(StatusBar &status_bar);
+  void save_file(StatusBar &status_bar);
 
 private:
   QFile current_file;
+  QString current_file_path;
+
+  void try_save(StatusBar &status_bar);
 };
 
 } // namespace OpenConfigEditor

@@ -1,13 +1,13 @@
 #include "main_window.h"
-#include "file_menu.h"
 #include "status_bar.h"
 #include "text_editor.h"
-#include <QMenu>
-#include <QMenuBar>
 
 #include <QAbstractTextDocumentLayout>
 #include <QFile>
+#include <QFileDialog>
 #include <QGridLayout>
+#include <QMenu>
+#include <QMenuBar>
 #include <QPlainTextEdit>
 #include <QString>
 #include <QTextDocument>
@@ -38,8 +38,8 @@ MainWindow::MainWindow(QWidget *parent) {
   // // Stack allocated, since never parented
   // QString fileString = QTextStream(&file).readAll();
 
-  TextEditor *text_edit = new TextEditor();
   StatusBar *status_bar = new StatusBar();
+  TextEditor *text_edit = new TextEditor(*status_bar);
 
   // QTextDocument *document = new QTextDocument(text_edit);
   // QAbstractTextDocumentLayout *document_layout =
@@ -63,14 +63,12 @@ MainWindow::MainWindow(QWidget *parent) {
   file_menu->addAction(file_menu_open_action);
   file_menu->addAction(file_menu_save_action);
 
+  connect(file_menu_new_action, &QAction::triggered, this,
+          [text_edit, status_bar]() { text_edit->new_file(*status_bar); });
   connect(file_menu_open_action, &QAction::triggered, this,
-          [text_edit, status_bar]() {
-            FileMenu::on_open_file(*text_edit, *status_bar);
-          });
+          [text_edit, status_bar]() { text_edit->open_file(*status_bar); });
   connect(file_menu_save_action, &QAction::triggered, this,
-          [text_edit, status_bar]() {
-            FileMenu::on_save_file(*text_edit, *status_bar);
-          });
+          [text_edit, status_bar]() { text_edit->save_file(*status_bar); });
 
   // setMenuBar(create_menu_bar_widget());
   layout->addWidget(text_edit, 2, 0);
