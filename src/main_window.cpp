@@ -1,4 +1,5 @@
 #include "main_window.h"
+#include "lsp/lsp_client.h"
 #include "status_bar.h"
 #include "text_editor.h"
 

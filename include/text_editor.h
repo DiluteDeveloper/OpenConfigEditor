@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lsp/lsp_client.h"
 #include "status_bar.h"
 #include <QFile>
 #include <QPlainTextEdit>
@@ -13,11 +14,16 @@ public:
   void new_file(StatusBar &status_bar);
   void save_file(StatusBar &status_bar);
 
+  const QFile &get_file() const;
+  const QString &get_file_path() const;
+
 private:
-  QFile current_file;
+  LSP::LSPClient* lsp;
+  QFile *current_file;
   QString current_file_path;
 
   void try_save(StatusBar &status_bar);
+  void keyPressEvent(QKeyEvent* event) override;
 };
 
 } // namespace OpenConfigEditor

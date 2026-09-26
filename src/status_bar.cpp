@@ -17,6 +17,7 @@ void StatusBar::set_file_name(const QString &file_name) {
   left_side_label->setText(file_name);
 }
 void StatusBar::set_bytes_written(uint32_t bytes) {
+
   qDebug() << "Setting status bar bytes written:" << bytes;
   right_side_label->setText(QString("%1 bytes written").arg(bytes));
 
