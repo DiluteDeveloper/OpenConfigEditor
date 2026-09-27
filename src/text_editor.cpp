@@ -46,6 +46,9 @@ void TextEditor::open_file(StatusBar &status_bar) {
 #endif
 
     qDebug() << "Successfully opened file:" << current_file_path;
+
+    lsp->dispatch_request(LSP::LSPMessages::did_open(
+        QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 }
 
 void TextEditor::new_file(StatusBar &status_bar) {
@@ -59,6 +62,7 @@ void TextEditor::new_file(StatusBar &status_bar) {
 
 void TextEditor::save_file(StatusBar &status_bar) {
 
+    bool is_new_file = false;
     if (current_file->fileName().isEmpty()) {
         current_file_path =
             QFileDialog::getSaveFileName(this, "Save File", QDir::homePath(),
@@ -70,6 +74,7 @@ void TextEditor::save_file(StatusBar &status_bar) {
         status_bar.set_file_name(
             current_file.filesystemFileName().filename().c_str());
 #endif
+        is_new_file = true;
     }
     qDebug() << "Saving file:" << current_file_path;
 
@@ -80,6 +85,10 @@ void TextEditor::save_file(StatusBar &status_bar) {
     QTextStream out(current_file);
     out << toPlainText();
     current_file->close();
+
+    if (is_new_file)
+        lsp->dispatch_request(LSP::LSPMessages::did_open(
+            QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 
     qDebug() << "Successfully saved file:" << current_file_path;
 
@@ -110,8 +119,8 @@ void TextEditor::try_save(StatusBar &status_bar) {
 
 void TextEditor::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_K) {
-        QJsonObject hover_request = LSP::LSPRequests::hover(
-            QUrl::fromLocalFile(current_file_path).toString(), 0, 0);
+        QJsonObject hover_request = LSP::LSPMessages::hover(
+            QUrl::fromLocalFile(current_file_path), 0, 0);
 
         lsp->dispatch_request(hover_request);
     }

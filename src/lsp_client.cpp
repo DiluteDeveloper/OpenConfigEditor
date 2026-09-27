@@ -8,10 +8,11 @@ namespace OpenConfigEditor {
 
 namespace LSP {
 
-    const std::unordered_map<LSPRequests::MethodID, QString>
-        LSPRequests::method_names = {
-            {LSPRequests::MethodID::INITIALIZE, "initialize"},
-            {LSPRequests::MethodID::HOVER, "textDocument/hover"},
+    const std::unordered_map<LSPMessages::MethodID, QString>
+        LSPMessages::method_names = {
+            {LSPMessages::MethodID::INITIALIZE, "initialize"},
+            {LSPMessages::MethodID::HOVER, "textDocument/hover"},
+            {LSPMessages::MethodID::DID_OPEN, "textDocument/didOpen"},
     };
 
     LSPClient::LSPClient(QObject *parent) : QObject(parent) {
@@ -25,15 +26,18 @@ namespace LSP {
         });
 
         // temporary
-        response_handlers.emplace(LSPRequests::MethodID::HOVER, test_handler);
+        response_handlers.emplace(LSPMessages::MethodID::HOVER, test_handler);
 
         // temporary
-        response_handlers.emplace(LSPRequests::MethodID::INITIALIZE,
+        response_handlers.emplace(LSPMessages::MethodID::INITIALIZE,
+                                  test_handler);
+        // temporary
+        response_handlers.emplace(LSPMessages::MethodID::DID_OPEN,
                                   test_handler);
 
         QJsonObject initialize_request =
-            LSPRequests::initialize(QCoreApplication::applicationPid(),
-                                    LSPRequests::client_capabilities());
+            LSPMessages::initialize(QCoreApplication::applicationPid(),
+                                    LSPMessages::client_capabilities());
         dispatch_request(initialize_request);
     }
     void LSPClient::dispatch_request(const QJsonObject &request) const {
@@ -47,7 +51,7 @@ namespace LSP {
         QByteArray request_bytes =
             QByteArray(QJsonDocument(request).toJson(QJsonDocument::Compact));
 
-        QByteArray header_bytes = LSPRequests::header(request_bytes);
+        QByteArray header_bytes = LSPMessages::header(request_bytes);
 
         qDebug().noquote().nospace()
             << "\033[31m"
@@ -63,7 +67,6 @@ namespace LSP {
             << "\033[0m";
     }
     void LSPClient::try_parse_response() {
-        qDebug() << "Parsing response 1...";
         while (true) {
 
             int header_end = buffer.indexOf("\r\n\r\n");
@@ -71,7 +74,6 @@ namespace LSP {
                 return;
             }
 
-            qDebug() << "Parsing response 2...";
             QByteArray header_block = buffer.left(header_end);
             int content_length = -1;
 
@@ -85,38 +87,32 @@ namespace LSP {
                 // ignoring Content-Type — we only ever get utf-8 JSON in
                 // practice
             }
-            qDebug() << "Parsing response 3...";
 
             if (content_length < 0) {
                 qWarning() << "Malformed message: no Content-Length header";
                 buffer.clear();
                 return;
             }
-            qDebug() << "Parsing response 4...";
 
             int body_start = header_end + 4; // skip past "\r\n\r\n"
             int body_end = body_start + content_length;
-            qDebug() << "Parsing response 5...";
 
             if (buffer.size() < body_end) {
                 return; // body not fully received yet
             }
-            qDebug() << "Parsing response 6...";
 
             QByteArray body = buffer.mid(body_start, content_length);
 
             QJsonParseError err;
             QJsonDocument body_doc = QJsonDocument::fromJson(body, &err);
 
-            qDebug() << "Parsing response 7...";
             if (err.error != QJsonParseError::NoError) {
                 qWarning() << "JSON parse error:" << err.errorString();
             } else if (body_doc.isObject()) {
                 QJsonObject body_json = body_doc.object();
-                response_handlers.at(static_cast<LSPRequests::MethodID>(
+                response_handlers.at(static_cast<LSPMessages::MethodID>(
                     body_json.value("id").toInt()))(body_json);
             }
-            qDebug() << "Parsing response 8...";
 
             buffer.remove(0, body_end);
         }
@@ -129,22 +125,35 @@ namespace LSP {
             << "\033[0m";
     }
 
-    QByteArray LSPRequests::header(const QByteArray &json_message) {
+    QByteArray LSPMessages::header(const QByteArray &json_message) {
         return QByteArray("Content-Length: " +
                           QByteArray::number(json_message.size()) + "\r\n\r\n");
     }
-    QJsonObject LSPRequests::hover(const QString &file_uri, int32_t line,
+    QJsonObject LSPMessages::hover(const QUrl &file_uri, int32_t line,
                                    int32_t character) {
         QJsonObject request;
-        request["textDocument"] = QJsonObject{{"uri", file_uri}};
+        request["textDocument"] = QJsonObject{{"uri", file_uri.toString()}};
         request["position"] =
             QJsonObject{{"line", line}, {"character", character}};
 
         return wrap_request(MethodID::HOVER, request);
     }
 
+    QJsonObject LSPMessages::did_open(const QUrl &file_uri,
+                                      const QString &language_id,
+                                      int32_t version,
+                                      const QString &contents) {
+        QJsonObject text_document;
+        text_document["uri"] = file_uri.toString();
+        text_document["languageId"] = language_id;
+        text_document["version"] = version;
+        text_document["text"] = contents;
+        return wrap_notification(MethodID::DID_OPEN,
+                                 QJsonObject{{"textDocument", text_document}});
+    }
+
     // client_locale: https://en.wikipedia.org/wiki/IETF_language_tag
-    QJsonObject LSPRequests::initialize(
+    QJsonObject LSPMessages::initialize(
         int32_t process_id, const QJsonObject &client_capabilities,
         const QUrl *root_uri, const QString *client_name,
         const QString *client_version, const QString *client_locale,
@@ -180,7 +189,7 @@ namespace LSP {
                             request); //.toJson(QJsonDocument::Compact);
     }
 
-    QString LSPRequests::trace_value_to_string(TraceValue trace_value) {
+    QString LSPMessages::trace_value_to_string(TraceValue trace_value) {
         switch (trace_value) {
         case OFF:
             return "off";
@@ -193,12 +202,18 @@ namespace LSP {
             return "off";
         }
     }
-    QJsonObject LSPRequests::client_capabilities() { return QJsonObject(); }
+    QJsonObject LSPMessages::client_capabilities() { return QJsonObject(); }
 
-    QJsonObject LSPRequests::wrap_request(LSPRequests::MethodID method,
+    QJsonObject LSPMessages::wrap_request(LSPMessages::MethodID method,
                                           QJsonObject request) {
         return QJsonObject{{"jsonrpc", "2.0"},
                            {"id", method},
+                           {"method", method_names.at(method)},
+                           {"params", request}};
+    }
+    QJsonObject LSPMessages::wrap_notification(LSPMessages::MethodID method,
+                                               QJsonObject request) {
+        return QJsonObject{{"jsonrpc", "2.0"},
                            {"method", method_names.at(method)},
                            {"params", request}};
     }
