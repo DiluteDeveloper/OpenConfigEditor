@@ -4,3 +4,4 @@ compile_commands.json
 .qmake.stash
 build/
 test.txt
+.clang-format
