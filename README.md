@@ -47,6 +47,7 @@ in `doc/`:
 This diagram is heavily work-in-progress and exists primarily to assist with
 development, and secondarily to document the development process.
 It does not necessarily reflect all aspects of the current state 
-of the application code.
+of the application code nor is it necessarily a complete or accurate
+class diagram.
 
 
