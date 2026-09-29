@@ -8,124 +8,124 @@
 #include "qjsonobject.h"
 #include "qmessagebox.h"
 #include "qplaintextedit.h"
+#include "qtextdocument.h"
 #include "text_editor.h"
 
 namespace OpenConfigEditor {
 
 TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
-
     lsp = new LSP::LSPClient(this);
-    current_file = new QFile(this);
-
-    // status_bar.set_file_name("New File");
-    // connect(this, &QPlainTextEdit::textChanged, this,
-    //         [this]() { on_text_changed(lsp); });
 }
 
-void TextEditor::open_file() {
-    try_save();
+void TextEditor::on_user_request_open_file(
+    DocumentFileManager &docfile_manager) {
 
-    current_file_path =
-        QFileDialog::getOpenFileName(this, "Open File", "/home/dilute");
+    if (!request_user_save_current_document(docfile_manager))
+        return;
+    if (file != nullptr) {
+        docfile_manager.unload_document(file->fileName());
+        file = nullptr;
+    }
 
-    qDebug() << "Opening file:" << current_file_path;
+    // Set to my home directory for testing purposes for now
+    QString file_path =
+        QFileDialog::getOpenFileName(this, "Open File", QDir::homePath());
 
-    current_file->setFileName(current_file_path);
-    if (!current_file->open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "Failed to open file" << current_file_path;
+    DocumentFile *docfile = docfile_manager.load_or_get_document(file_path);
+
+    if (docfile == nullptr) {
+        qWarning() << "Failed to load file: " << file_path;
         return;
     }
-    setPlainText(QTextStream(current_file).readAll());
-    current_file->close();
+    setDocument(&docfile->document);
+    file = &docfile->file;
 
-    // #ifdef FULL_PATH_IN_STATUS_BAR
-    //     status_bar.set_file_name(current_file_path);
-    // #else
-    //     status_bar.set_file_name(
-    //         current_file.filesystemFileName().filename().c_str());
-    // #endif
+    emit file_opened(*file);
 
-    qDebug() << "Successfully opened file:" << current_file_path;
-    emit file_opened(*this);
-
-    lsp->dispatch_request(LSP::LSPMessages::did_open(
-        QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
+    // lsp->dispatch_request(LSP::LSPMessages::did_open(
+    //     QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 }
 
-void TextEditor::new_file() {
-    try_save();
+void TextEditor::on_user_request_create_new_document(
+    DocumentFileManager &docfile_manager) {
+    if (!request_user_save_current_document(docfile_manager))
+        return;
 
-    current_file_path = "";
-    current_file->setFileName("");
-    // status_bar.set_file_name("New File");
-    clear();
-    emit file_created(*this);
+    if (file != nullptr) {
+        docfile_manager.unload_document(file->fileName());
+        file = nullptr;
+    }
+
+    QTextDocument *doc = new QTextDocument(this);
+    doc->setDocumentLayout(new QPlainTextDocumentLayout(doc));
+    setDocument(doc);
+    emit document_created();
 }
 
-void TextEditor::save_file() {
+void TextEditor::on_user_request_save_current_document(
+    DocumentFileManager &docfile_manager) {
 
-    bool is_new_file = false;
-    if (current_file->fileName().isEmpty()) {
-        current_file_path =
+    if (!document()->isModified())
+        return;
+
+    if (file == nullptr) {
+        QString file_path =
             QFileDialog::getSaveFileName(this, "Save File", QDir::homePath(),
                                          "Text Files (*.tt);; All Files (*)");
-        current_file->setFileName(current_file_path);
-        // #ifdef FULL_PATH_IN_STATUS_BAR
-        //         status_bar.set_file_name(current_file_path);
-        // #else
-        //         status_bar.set_file_name(
-        //             current_file.filesystemFileName().filename().c_str());
-        // #endif
-        is_new_file = true;
+        DocumentFile *df =
+            docfile_manager.save_document(file_path, toPlainText());
+        if (df == nullptr) {
+            qWarning() << "Failed to save file:" << file_path;
+            return;
+        }
+        file = &df->file;
+        setDocument(&df->document);
     }
-    qDebug() << "Saving file:" << current_file_path;
 
-    if (!current_file->open(QIODevice::WriteOnly | QIODevice::Text)) {
-        qWarning() << "Failed to open file:" << current_file_path;
-        return;
-    }
-    QTextStream out(current_file);
-    out << toPlainText();
-    current_file->close();
-
-    if (is_new_file)
-        lsp->dispatch_request(LSP::LSPMessages::did_open(
-            QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
-
-    qDebug() << "Successfully saved file:" << current_file_path;
-    emit file_saved(*this);
+    docfile_manager.save_document(file->fileName(), toPlainText());
     document()->setModified(false);
+    emit document_saved(*this);
 }
 
-const QFile &TextEditor::get_file() const { return *current_file; }
-const QString &TextEditor::get_file_path() const { return current_file_path; }
-
-void TextEditor::try_save() {
+bool TextEditor::request_user_save_current_document(
+    DocumentFileManager &docfile_manager) {
 
     if (document()->isModified()) {
         switch (QMessageBox::question(this, "Your file has not been saved.",
                                       "Do you want to save your changes?",
                                       QMessageBox::Save | QMessageBox::Discard |
                                           QMessageBox::Cancel)) {
-        case QMessageBox::Cancel:
-            return;
+        case QMessageBox::Discard:
+            if (file != nullptr)
+                docfile_manager.unload_document(file->fileName());
+            return true;
         case QMessageBox::Save:
-            save_file();
-            break;
+            on_user_request_save_current_document(docfile_manager);
+            return true;
+        case QMessageBox::Cancel:
+            return false;
         default:
-            break;
+            return false;
         }
     }
+    return true;
 }
 
 void TextEditor::keyPressEvent(QKeyEvent *event) {
     if (event->key() == Qt::Key_K) {
         QJsonObject hover_request = LSP::LSPMessages::hover(
-            QUrl::fromLocalFile(current_file_path), 0, 0);
+            QUrl::fromLocalFile(file->fileName()), 0, 0);
 
         lsp->dispatch_request(hover_request);
     }
     QPlainTextEdit::keyPressEvent(event);
 }
+
+void TextEditor::focusInEvent(QFocusEvent *e) {
+    QPlainTextEdit::focusInEvent(e);
+    emit focused(*this);
+}
+
+const QFile *TextEditor::get_file() const { return file; }
 
 } // namespace OpenConfigEditor

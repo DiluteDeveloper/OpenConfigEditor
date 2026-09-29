@@ -12,9 +12,10 @@ class StatusBar : public QHBoxLayout {
 
     void connect_text_editor_signals(const TextEditor &text_editor);
 
-    void on_file_opened(const TextEditor &text_editor);
-    void on_file_saved(const TextEditor &text_editor);
-    void on_file_created();
+    void on_file_opened(const QFile &file);
+    void on_document_saved(const TextEditor &text_editor);
+    void on_document_created();
+    void on_text_editor_focused(const TextEditor &text_editor);
 
   private:
     QLabel *left_side_label;

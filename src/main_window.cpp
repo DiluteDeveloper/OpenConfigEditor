@@ -1,4 +1,5 @@
 #include "main_window.h"
+#include "document_file_manager.h"
 #include "qmainwindow.h"
 #include "status_bar.h"
 #include "text_editor.h"
@@ -39,9 +40,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // // Stack allocated, since never parented
     // QString fileString = QTextStream(&file).readAll();
 
-    TextEditor *text_editor = new TextEditor(this);
-    StatusBar *status_bar = new StatusBar(this);
+    TextEditor *text_editor = new TextEditor();
+    TextEditor *text_editor2 = new TextEditor();
+    StatusBar *status_bar = new StatusBar();
+    DocumentFileManager *docfile_manager = new DocumentFileManager(this);
+
     status_bar->connect_text_editor_signals(*text_editor);
+    status_bar->connect_text_editor_signals(*text_editor2);
 
     // QTextDocument *document = new QTextDocument(text_edit);
     // QAbstractTextDocumentLayout *document_layout =
@@ -66,14 +71,39 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     file_menu->addAction(file_menu_save_action);
 
     connect(file_menu_new_action, &QAction::triggered, text_editor,
-            &TextEditor::new_file);
+            [docfile_manager, text_editor, text_editor2]() {
+                if (text_editor->hasFocus()) {
+
+                    text_editor->on_user_request_create_new_document(
+                        *docfile_manager);
+                } else if (text_editor2->hasFocus()) {
+
+                    text_editor2->on_user_request_create_new_document(
+                        *docfile_manager);
+                }
+            });
     connect(file_menu_open_action, &QAction::triggered, text_editor,
-            &TextEditor::open_file);
+            [docfile_manager, text_editor, text_editor2]() {
+                if (text_editor->hasFocus()) {
+                    text_editor->on_user_request_open_file(*docfile_manager);
+                } else if (text_editor2->hasFocus()) {
+                    text_editor2->on_user_request_open_file(*docfile_manager);
+                }
+            });
     connect(file_menu_save_action, &QAction::triggered, text_editor,
-            &TextEditor::save_file);
+            [docfile_manager, text_editor, text_editor2]() {
+                if (text_editor->hasFocus()) {
+                    text_editor->on_user_request_save_current_document(
+                        *docfile_manager);
+                } else if (text_editor2->hasFocus()) {
+                    text_editor2->on_user_request_save_current_document(
+                        *docfile_manager);
+                }
+            });
 
     // setMenuBar(create_menu_bar_widget());
     layout->addWidget(text_editor, 2, 0);
+    layout->addWidget(text_editor2, 3, 0);
     layout->addLayout(status_bar, 1, 0);
     centralWidget->setLayout(layout);
 
