@@ -37,3 +37,16 @@ your system and on the system path. With Qt base installed, run the
 `qmake qt.pro` command inside of the root directory, then run the
 `make` command inside of the root directory.
 
+## Development Documentation
+
+Here is the current class diagram draft of the infrastructure, found
+in `doc/`:
+
+![Class diagram](doc/class_diagram.drawio.png)
+
+This diagram is heavily work-in-progress and exists primarily to assist with
+development, and secondarily to document the development process.
+It does not necessarily reflect all aspects of the current state 
+of the application code.
+
+

@@ -1,5 +1,5 @@
 #include "main_window.h"
-#include "lsp_client.h"
+#include "qmainwindow.h"
 #include "status_bar.h"
 #include "text_editor.h"
 
@@ -21,7 +21,7 @@ namespace OpenConfigEditor {
 
 constexpr std::string_view window_title = "OpenConfigEditor";
 
-MainWindow::MainWindow(QWidget *parent) {
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     qDebug() << "Initialising window";
     QWidget *centralWidget = new QWidget;
 
@@ -39,8 +39,9 @@ MainWindow::MainWindow(QWidget *parent) {
     // // Stack allocated, since never parented
     // QString fileString = QTextStream(&file).readAll();
 
-    StatusBar *status_bar = new StatusBar();
-    TextEditor *text_edit = new TextEditor(*status_bar);
+    TextEditor *text_editor = new TextEditor(this);
+    StatusBar *status_bar = new StatusBar(this);
+    status_bar->connect_text_editor_signals(*text_editor);
 
     // QTextDocument *document = new QTextDocument(text_edit);
     // QAbstractTextDocumentLayout *document_layout =
@@ -64,15 +65,15 @@ MainWindow::MainWindow(QWidget *parent) {
     file_menu->addAction(file_menu_open_action);
     file_menu->addAction(file_menu_save_action);
 
-    connect(file_menu_new_action, &QAction::triggered, this,
-            [text_edit, status_bar]() { text_edit->new_file(*status_bar); });
-    connect(file_menu_open_action, &QAction::triggered, this,
-            [text_edit, status_bar]() { text_edit->open_file(*status_bar); });
-    connect(file_menu_save_action, &QAction::triggered, this,
-            [text_edit, status_bar]() { text_edit->save_file(*status_bar); });
+    connect(file_menu_new_action, &QAction::triggered, text_editor,
+            &TextEditor::new_file);
+    connect(file_menu_open_action, &QAction::triggered, text_editor,
+            &TextEditor::open_file);
+    connect(file_menu_save_action, &QAction::triggered, text_editor,
+            &TextEditor::save_file);
 
     // setMenuBar(create_menu_bar_widget());
-    layout->addWidget(text_edit, 2, 0);
+    layout->addWidget(text_editor, 2, 0);
     layout->addLayout(status_bar, 1, 0);
     centralWidget->setLayout(layout);
 

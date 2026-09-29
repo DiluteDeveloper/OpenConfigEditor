@@ -7,23 +7,23 @@
 
 #include "qjsonobject.h"
 #include "qmessagebox.h"
-#include "status_bar.h"
+#include "qplaintextedit.h"
 #include "text_editor.h"
 
 namespace OpenConfigEditor {
 
-TextEditor::TextEditor(StatusBar &status_bar) {
+TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
 
     lsp = new LSP::LSPClient(this);
     current_file = new QFile(this);
 
-    status_bar.set_file_name("New File");
+    // status_bar.set_file_name("New File");
     // connect(this, &QPlainTextEdit::textChanged, this,
     //         [this]() { on_text_changed(lsp); });
 }
 
-void TextEditor::open_file(StatusBar &status_bar) {
-    try_save(status_bar);
+void TextEditor::open_file() {
+    try_save();
 
     current_file_path =
         QFileDialog::getOpenFileName(this, "Open File", "/home/dilute");
@@ -38,29 +38,31 @@ void TextEditor::open_file(StatusBar &status_bar) {
     setPlainText(QTextStream(current_file).readAll());
     current_file->close();
 
-#ifdef FULL_PATH_IN_STATUS_BAR
-    status_bar.set_file_name(current_file_path);
-#else
-    status_bar.set_file_name(
-        current_file.filesystemFileName().filename().c_str());
-#endif
+    // #ifdef FULL_PATH_IN_STATUS_BAR
+    //     status_bar.set_file_name(current_file_path);
+    // #else
+    //     status_bar.set_file_name(
+    //         current_file.filesystemFileName().filename().c_str());
+    // #endif
 
     qDebug() << "Successfully opened file:" << current_file_path;
+    emit file_opened(*this);
 
     lsp->dispatch_request(LSP::LSPMessages::did_open(
         QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 }
 
-void TextEditor::new_file(StatusBar &status_bar) {
-    try_save(status_bar);
+void TextEditor::new_file() {
+    try_save();
 
     current_file_path = "";
     current_file->setFileName("");
-    status_bar.set_file_name("New File");
+    // status_bar.set_file_name("New File");
     clear();
+    emit file_created(*this);
 }
 
-void TextEditor::save_file(StatusBar &status_bar) {
+void TextEditor::save_file() {
 
     bool is_new_file = false;
     if (current_file->fileName().isEmpty()) {
@@ -68,12 +70,12 @@ void TextEditor::save_file(StatusBar &status_bar) {
             QFileDialog::getSaveFileName(this, "Save File", QDir::homePath(),
                                          "Text Files (*.tt);; All Files (*)");
         current_file->setFileName(current_file_path);
-#ifdef FULL_PATH_IN_STATUS_BAR
-        status_bar.set_file_name(current_file_path);
-#else
-        status_bar.set_file_name(
-            current_file.filesystemFileName().filename().c_str());
-#endif
+        // #ifdef FULL_PATH_IN_STATUS_BAR
+        //         status_bar.set_file_name(current_file_path);
+        // #else
+        //         status_bar.set_file_name(
+        //             current_file.filesystemFileName().filename().c_str());
+        // #endif
         is_new_file = true;
     }
     qDebug() << "Saving file:" << current_file_path;
@@ -91,15 +93,14 @@ void TextEditor::save_file(StatusBar &status_bar) {
             QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 
     qDebug() << "Successfully saved file:" << current_file_path;
-
-    status_bar.set_bytes_written(toPlainText().toUtf8().size());
+    emit file_saved(*this);
     document()->setModified(false);
 }
 
 const QFile &TextEditor::get_file() const { return *current_file; }
 const QString &TextEditor::get_file_path() const { return current_file_path; }
 
-void TextEditor::try_save(StatusBar &status_bar) {
+void TextEditor::try_save() {
 
     if (document()->isModified()) {
         switch (QMessageBox::question(this, "Your file has not been saved.",
@@ -109,7 +110,7 @@ void TextEditor::try_save(StatusBar &status_bar) {
         case QMessageBox::Cancel:
             return;
         case QMessageBox::Save:
-            save_file(status_bar);
+            save_file();
             break;
         default:
             break;
