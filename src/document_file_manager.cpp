@@ -15,15 +15,12 @@ DocumentFile::DocumentFile(const QString &file_path, QObject *parent)
         return;
     }
     document.setPlainText(QTextStream(&file).readAll());
-    document.setDocumentLayout(new QPlainTextDocumentLayout(&document));
     document.setModified(false);
     file.close();
 }
 DocumentFile::DocumentFile(const QString &file_path, const QString &content,
                            QObject *parent)
-    : QObject(parent), document(content, this), file(file_path, this) {
-    document.setDocumentLayout(new QPlainTextDocumentLayout(&document));
-}
+    : QObject(parent), document(content, this), file(file_path, this) {}
 
 DocumentFileManager::DocumentFileManager(QObject *parent) : QObject(parent) {}
 

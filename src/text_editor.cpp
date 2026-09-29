@@ -13,7 +13,7 @@
 
 namespace OpenConfigEditor {
 
-TextEditor::TextEditor(QWidget *parent) : QPlainTextEdit(parent) {
+TextEditor::TextEditor(QWidget *parent) : QTextEdit(parent) {
     lsp = new LSP::LSPClient(this);
 }
 
@@ -56,9 +56,7 @@ void TextEditor::on_user_request_create_new_document(
         file = nullptr;
     }
 
-    QTextDocument *doc = new QTextDocument(this);
-    doc->setDocumentLayout(new QPlainTextDocumentLayout(doc));
-    setDocument(doc);
+    setDocument(new QTextDocument(this));
     emit document_created();
 }
 
@@ -68,6 +66,8 @@ void TextEditor::on_user_request_save_current_document(
     if (!document()->isModified())
         return;
 
+    // Need to address bug when user closes this QFileDialog, never
+    // addressed
     if (file == nullptr) {
         QString file_path =
             QFileDialog::getSaveFileName(this, "Save File", QDir::homePath(),
@@ -118,11 +118,11 @@ void TextEditor::keyPressEvent(QKeyEvent *event) {
 
         lsp->dispatch_request(hover_request);
     }
-    QPlainTextEdit::keyPressEvent(event);
+    QTextEdit::keyPressEvent(event);
 }
 
 void TextEditor::focusInEvent(QFocusEvent *e) {
-    QPlainTextEdit::focusInEvent(e);
+    QTextEdit::focusInEvent(e);
     emit focused(*this);
 }
 

@@ -50,4 +50,8 @@ It does not necessarily reflect all aspects of the current state
 of the application code nor is it necessarily a complete or accurate
 class diagram.
 
+## Known Bugs
 
+- Sometimes crashes after document unload when discarding changes
+- Doesn't properly handle when user closes popup
+file dialog

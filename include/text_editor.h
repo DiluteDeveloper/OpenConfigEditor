@@ -3,11 +3,11 @@
 #include "document_file_manager.h"
 #include "lsp_client.h"
 #include <QFile>
-#include <QPlainTextEdit>
+#include <QTextEdit>
 
 namespace OpenConfigEditor {
 
-class TextEditor : public QPlainTextEdit {
+class TextEditor : public QTextEdit {
     Q_OBJECT
   public:
     TextEditor(QWidget *parent = nullptr);
