@@ -38,11 +38,19 @@ namespace ProjectTreeModel {
     // The "name" is optional, a physical node with no name gets the last
     // directory in its path as the name.
     //
+    // A physical node mirrors its directory all the way down, so the
+    // mirror is recursive too, every subdirectory on disk becomes a child
+    // and its own children.
+    //
     // The walk is iterative rather than recursive: the deque holds the
     // nodes still to visit, one entry per level of the tree, and each
     // entry remembers which item its nodes get appended to and how far
     // through the array it has gotten. Levels are pushed when their
-    // parent is created and popped once their array is used up.
+    // parent is created and popped once their array is used up. The
+    // directories on disk are walked the same way, through a second queue
+    // of directories still to list rather than by calling into this
+    // function again, so neither a deep tree nor a chain of symlinked
+    // directories can exhaust the stack.
     // Held by a unique_ptr until the walk succeeds, otherwise the error
     // returns below would leak the model along with every item already
     // appended to it. Released back to a plain pointer on success.
@@ -67,7 +75,75 @@ namespace ProjectTreeModel {
         std::deque<PendingLevel> pending;
         pending.push_back({root_array, model->invisibleRootItem(), 0, {}});
 
-        while (!pending.empty()) {
+        // Directories on disk that still need to be listed, each paired with
+        // the item its entries are appended to. Filled in as physical nodes
+        // are met, and worked off alongside the json levels rather than
+        // within them, since a directory only ever adds rows to the one item
+        // it was found in and so cannot disturb the json levels.
+        struct PendingDirectory {
+            QDir directory;
+            QStandardItem *parent;
+            QSet<QString> ancestor_paths;
+        };
+        std::deque<PendingDirectory> pending_directories;
+
+        while (!pending.empty() || !pending_directories.empty()) {
+            if (!pending_directories.empty()) {
+                const PendingDirectory pending_directory =
+                    pending_directories.front();
+                pending_directories.pop_front();
+
+                // Canonical paths, which follow symlinks, of the directories
+                // between this one and the physical node it was found under.
+                // A directory that is one of its own ancestors has been
+                // reached through a symlink pointing back up the tree, its
+                // contents are being mirrored further up already, so it is
+                // left as a leaf rather than being followed forever.
+                // Only the ancestors of a branch are remembered, not every
+                // directory listed, so the same directory reached from two
+                // separate nodes, or from two separate entries within one,
+                // is mirrored under both of them.
+                const QString canonical_path =
+                    pending_directory.directory.canonicalPath();
+                if (!canonical_path.isEmpty() &&
+                    pending_directory.ancestor_paths.contains(canonical_path))
+                    continue;
+
+                // Children of a listed directory inherit its ancestors as
+                // their own. The set is implicitly shared, so handing a copy
+                // to each child costs nothing until one of them is added to.
+                QSet<QString> child_ancestor_paths =
+                    pending_directory.ancestor_paths;
+                if (!canonical_path.isEmpty())
+                    child_ancestor_paths.insert(canonical_path);
+
+                // Children come from disk, each entry keeping its full path
+                // so a view can open it later. The listing is not sorted or
+                // filtered any more than the top level one was.
+                const QDir &directory = pending_directory.directory;
+                const QFileInfoList entries = directory.entryInfoList(
+                    QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden,
+                    QDir::Name);
+                for (const QFileInfo &entry : entries) {
+                    auto *entry_item = new QStandardItem(entry.fileName());
+                    const QString entry_path =
+                        directory.absoluteFilePath(entry.fileName());
+                    entry_item->setData(entry_path, ENTRY_PATH_ROLE);
+                    pending_directory.parent->appendRow(entry_item);
+
+                    // A subdirectory becomes a child of its own, which is
+                    // only populated once the walk reaches its queue entry.
+                    // A directory that cannot be listed is not fatal, it
+                    // just ends up as a leaf, same as an unreadable node
+                    // higher up.
+                    if (entry.isDir())
+                        pending_directories.push_back(
+                            {QDir(entry_path), entry_item,
+                             child_ancestor_paths});
+                }
+                continue;
+            }
+
             PendingLevel &current = pending.back();
 
             if (current.next_index >= current.nodes.size()) {
@@ -190,21 +266,13 @@ namespace ProjectTreeModel {
                 if (!invalid_reason.isEmpty())
                     continue;
 
-                // Children come from disk instead of the JSON, each entry
-                // keeping its full path so a view can open it later. Only
-                // the immediate contents are added, deeper levels are left
-                // to be filled in when they are opened.
-                QDir directory(node_path);
-                const QFileInfoList entries = directory.entryInfoList(
-                    QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden,
-                    QDir::Name);
-                for (const QFileInfo &entry : entries) {
-                    auto *entry_item = new QStandardItem(entry.fileName());
-                    entry_item->setData(
-                        directory.absoluteFilePath(entry.fileName()),
-                        ENTRY_PATH_ROLE);
-                    item->appendRow(entry_item);
-                }
+                // Children come from disk instead of the JSON. The
+                // directory is queued rather than listed here, so its
+                // contents, and the contents of every subdirectory below
+                // it, are added as the walk comes back round. It starts a
+                // branch of its own with no ancestors, so it is never
+                // treated as looping back into a node mirrored elsewhere.
+                pending_directories.push_back({QDir(node_path), item, {}});
                 continue;
             }
 
