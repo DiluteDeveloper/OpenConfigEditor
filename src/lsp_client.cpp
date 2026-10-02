@@ -53,18 +53,18 @@ namespace LSP {
 
         QByteArray header_bytes = LSPMessages::header(request_bytes);
 
-        qDebug().noquote().nospace()
-            << "\033[31m"
-            << "Request:\n"
-            << QJsonDocument(request).toJson(QJsonDocument::Indented)
-            << "\033[0m";
+        // qDebug().noquote().nospace()
+        //     << "\033[31m"
+        //     << "Request:\n"
+        //     << QJsonDocument(request).toJson(QJsonDocument::Indented)
+        //     << "\033[0m";
 
         process->write(header_bytes);
         process->write(request_bytes);
         qDebug() << "Dispatched LSP request";
-        qDebug().noquote().nospace()
-            << "\033[38;2;255;0;0m" << process->readAllStandardError()
-            << "\033[0m";
+        // qDebug().noquote().nospace()
+        //     << "\033[38;2;255;0;0m" << process->readAllStandardError()
+        //     << "\033[0m";
     }
     void LSPClient::try_parse_response() {
         while (true) {
@@ -118,11 +118,11 @@ namespace LSP {
         }
     }
     void LSPClient::test_handler(const QJsonObject &object) {
-        qDebug().noquote().nospace()
-            << "\033[33m"
-            << "Response:\n"
-            << QJsonDocument(object).toJson(QJsonDocument::Indented)
-            << "\033[0m";
+        // qDebug().noquote().nospace()
+        //     << "\033[33m"
+        //     << "Response:\n"
+        //     << QJsonDocument(object).toJson(QJsonDocument::Indented)
+        //     << "\033[0m";
     }
 
     QByteArray LSPMessages::header(const QByteArray &json_message) {

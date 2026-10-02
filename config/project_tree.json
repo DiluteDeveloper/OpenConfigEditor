@@ -1,0 +1,24 @@
+[
+    {
+        "name": "Configuration Files",
+        "virtual_nodes": [
+            {
+                "name": "NixOS",
+                "path": "/etc/nixos/"
+            },
+            {
+                "name": "Hyprland",
+                "path": "/etc/nixos/hypr/"
+            },
+            {
+                "name": "Waybar",
+                "path": "/etc/nixos/waybar/"
+            },
+            {
+                "name": "Neovim",
+                "path": "/etc/nixos/neovim/"
+            }
+        ]
+    }
+]
+
