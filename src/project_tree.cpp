@@ -19,8 +19,18 @@ const auto NAME_KEY = QStringLiteral("name");
 const auto PATH_KEY = QStringLiteral("path");
 const auto VIRTUAL_NODES_KEY = QStringLiteral("virtual_nodes");
 
-const int PATH_ROLE = Qt::UserRole + 1;
-const int ENTRY_PATH_ROLE = Qt::UserRole + 2;
+// Filepaths are kept canonical rather than as they were spelled in the
+// json, so every node naming the same file names it the same way and a
+// view is handed a path it can open without resolving anything itself. A
+// path that cannot be canonicalized, because nothing is there under it,
+// falls back to the absolute form, otherwise the node would lose the
+// location it was pointing at along with the symlinks in it.
+QString canonical_or_absolute_path(const QFileInfo &path_info) {
+    const QString canonical_path = path_info.canonicalFilePath();
+    if (!canonical_path.isEmpty())
+        return canonical_path;
+    return path_info.absoluteFilePath();
+}
 
 } // namespace
 
@@ -127,8 +137,13 @@ namespace ProjectTreeModel {
                 for (const QFileInfo &entry : entries) {
                     auto *entry_item = new QStandardItem(entry.fileName());
                     const QString entry_path =
-                        directory.absoluteFilePath(entry.fileName());
-                    entry_item->setData(entry_path, ENTRY_PATH_ROLE);
+                        canonical_or_absolute_path(entry);
+                    // Which role is set says whether the entry is a file or
+                    // a directory, so nothing downstream has to go back to
+                    // the filesystem to find out what it clicked.
+                    entry_item->setData(entry_path, entry.isDir()
+                                                        ? DIRECTORY_PATH_ROLE
+                                                        : FILE_PATH_ROLE);
                     pending_directory.parent->appendRow(entry_item);
 
                     // A subdirectory becomes a child of its own, which is
@@ -137,9 +152,9 @@ namespace ProjectTreeModel {
                     // just ends up as a leaf, same as an unreadable node
                     // higher up.
                     if (entry.isDir())
-                        pending_directories.push_back(
-                            {QDir(entry_path), entry_item,
-                             child_ancestor_paths});
+                        pending_directories.push_back({QDir(entry_path),
+                                                       entry_item,
+                                                       child_ancestor_paths});
                 }
                 continue;
             }
@@ -242,8 +257,8 @@ namespace ProjectTreeModel {
                 // name, and it just gets no children since there is nothing
                 // on disk to mirror. The path stays in the item's data so it
                 // can be pointed somewhere real.
-                const QString node_path = path_value.toString();
-                const QFileInfo path_info(node_path);
+                const QFileInfo path_info(path_value.toString());
+                const QString node_path = canonical_or_absolute_path(path_info);
 
                 QString invalid_reason;
                 if (!path_info.exists())
@@ -260,7 +275,7 @@ namespace ProjectTreeModel {
                               .arg(node_name, node_path, invalid_reason);
 
                 auto *item = new QStandardItem(node_label);
-                item->setData(node_path, PATH_ROLE);
+                item->setData(node_path, DIRECTORY_PATH_ROLE);
                 parent->appendRow(item);
 
                 if (!invalid_reason.isEmpty())
@@ -392,7 +407,8 @@ namespace ProjectTreeModel {
             QJsonObject node_object;
             node_object.insert(NAME_KEY, node_name);
 
-            const QString node_path = item->data(PATH_ROLE).toString();
+            const QString node_path =
+                item->data(DIRECTORY_PATH_ROLE).toString();
             if (!node_path.isEmpty()) {
                 node_object.insert(PATH_KEY, node_path);
                 current.child_nodes.append(node_object);
@@ -427,4 +443,54 @@ namespace ProjectTreeModel {
     //     const QJsonDocument
 
 } // namespace ProjectTreeModel
+
+ProjectTree::ProjectTree(QWidget *parent) : QTreeView(parent) {}
+
+ProjectTree::~ProjectTree() {
+    setModel(nullptr);
+    delete project_tree_model;
+}
+
+bool ProjectTree::load_project_tree_json_file(
+    const QString &project_tree_json_path) {
+    QFile project_tree_json(project_tree_json_path);
+
+    std::optional<QStandardItemModel *> project_tree_model_opt =
+        ProjectTreeModel::create_model_from_project_tree_json_file(
+            project_tree_json);
+
+    if (!project_tree_model_opt.has_value()) {
+        qWarning() << "Invalid project tree model. leaving unchanged/default";
+        return false;
+    }
+
+    setModel(nullptr);
+    delete project_tree_model;
+    project_tree_model = project_tree_model_opt.value();
+    setModel(project_tree_model);
+
+    return true;
+}
+
+std::optional<QFileInfo>
+ProjectTree::get_file_for_index(const QModelIndex &index, int role) const {
+    if (!index.isValid())
+        return std::nullopt;
+
+    const QString node_path = index.data(role).toString();
+    if (node_path.isEmpty())
+        return std::nullopt;
+
+    return QFileInfo(node_path);
+}
+
+std::optional<QFileInfo> ProjectTree::get_file(const QModelIndex &index) const {
+    return get_file_for_index(index, ProjectTreeModel::FILE_PATH_ROLE);
+}
+
+std::optional<QFileInfo>
+ProjectTree::get_directory(const QModelIndex &index) const {
+    return get_file_for_index(index, ProjectTreeModel::DIRECTORY_PATH_ROLE);
+}
+
 } // namespace OpenConfigEditor

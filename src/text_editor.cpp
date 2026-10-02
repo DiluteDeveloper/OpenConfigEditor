@@ -16,25 +16,20 @@ namespace OpenConfigEditor {
 TextEditor::TextEditor(QWidget *parent) : QTextEdit(parent) {
     lsp = new LSP::LSPClient(this);
 }
+void TextEditor::open_file(DocumentFileManager &docfile_manager,
+                           const QString &new_file_path) {
 
-void TextEditor::on_user_request_open_file(
-    DocumentFileManager &docfile_manager) {
-
-    if (!request_user_save_current_document(docfile_manager))
+    if (!save_current_document_popup(docfile_manager))
         return;
     if (file != nullptr) {
         docfile_manager.unload_document(file->fileName());
         file = nullptr;
     }
 
-    // Set to my home directory for testing purposes for now
-    QString file_path =
-        QFileDialog::getOpenFileName(this, "Open File", QDir::homePath());
-
-    DocumentFile *docfile = docfile_manager.load_or_get_document(file_path);
+    DocumentFile *docfile = docfile_manager.load_or_get_document(new_file_path);
 
     if (docfile == nullptr) {
-        qWarning() << "Failed to load file: " << file_path;
+        qWarning() << "Failed to load file: " << new_file_path;
         return;
     }
     setDocument(&docfile->document);
@@ -46,9 +41,16 @@ void TextEditor::on_user_request_open_file(
     //     QUrl::fromLocalFile(current_file_path), "c", 0, toPlainText()));
 }
 
-void TextEditor::on_user_request_create_new_document(
-    DocumentFileManager &docfile_manager) {
-    if (!request_user_save_current_document(docfile_manager))
+void TextEditor::open_file_popup(DocumentFileManager &docfile_manager) {
+
+    // Set to my home directory for testing purposes for now
+    QString file_path =
+        QFileDialog::getOpenFileName(this, "Open File", QDir::homePath());
+    open_file(docfile_manager, file_path);
+}
+
+void TextEditor::new_document(DocumentFileManager &docfile_manager) {
+    if (!save_current_document_popup(docfile_manager))
         return;
 
     if (file != nullptr) {
@@ -60,8 +62,7 @@ void TextEditor::on_user_request_create_new_document(
     emit document_created();
 }
 
-void TextEditor::on_user_request_save_current_document(
-    DocumentFileManager &docfile_manager) {
+void TextEditor::save_current_document(DocumentFileManager &docfile_manager) {
 
     if (!document()->isModified())
         return;
@@ -87,7 +88,7 @@ void TextEditor::on_user_request_save_current_document(
     emit document_saved(*this);
 }
 
-bool TextEditor::request_user_save_current_document(
+bool TextEditor::save_current_document_popup(
     DocumentFileManager &docfile_manager) {
 
     if (document()->isModified()) {
@@ -100,7 +101,7 @@ bool TextEditor::request_user_save_current_document(
                 docfile_manager.unload_document(file->fileName());
             return true;
         case QMessageBox::Save:
-            on_user_request_save_current_document(docfile_manager);
+            save_current_document(docfile_manager);
             return true;
         case QMessageBox::Cancel:
             return false;

@@ -11,11 +11,11 @@ class TextEditor : public QTextEdit {
     Q_OBJECT
   public:
     TextEditor(QWidget *parent = nullptr);
-    void on_user_request_open_file(DocumentFileManager &docfile_manager);
-    void
-    on_user_request_create_new_document(DocumentFileManager &docfile_manager);
-    void
-    on_user_request_save_current_document(DocumentFileManager &docfile_manager);
+    void open_file(DocumentFileManager &docfile_manager,
+                   const QString &new_file_path);
+    void open_file_popup(DocumentFileManager &docfile_manager);
+    void new_document(DocumentFileManager &docfile_manager);
+    void save_current_document(DocumentFileManager &docfile_manager);
 
     const QFile *get_file() const;
 
@@ -32,8 +32,7 @@ class TextEditor : public QTextEdit {
     // @return true when user would like to continue with the
     // action, or false when the user has cancelled the
     // interaction
-    bool
-    request_user_save_current_document(DocumentFileManager &docfile_manager);
+    bool save_current_document_popup(DocumentFileManager &docfile_manager);
     void keyPressEvent(QKeyEvent *event) override;
     void focusInEvent(QFocusEvent *e) override;
 };
